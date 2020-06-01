@@ -19,8 +19,8 @@ router.post('/tasks', auth, async (req, res) => {
 
 router.get('/tasks', auth, async (req, res) => {
     try {
-        const tasks = await Task.find({})
-        res.send(tasks)
+        await req.user.populate('tasks').execPopulate()
+        res.send(req.user.tasks)
     } catch (error) {
         res.status(500).send()
         console.log(error)
@@ -29,7 +29,7 @@ router.get('/tasks', auth, async (req, res) => {
 
 router.get('/tasks/:id', auth, async (req, res) => {
     try {
-        const task = await Task.findById(req.params.id)
+        const task = await Task.findOne({ _id, owner: req.user._id})
         if (!task) {
             return res.status(404).send()
         }
@@ -51,26 +51,26 @@ router.patch('/tasks/:id', auth, async (req, res) => {
     }
 
     try {
-        const task = await Task.findById(req.params.id)
-        updates.forEach((update) => task[update] = req.body[update])
-
-        await task.save()
+        const task = await Task.findOne({ _id: req.params.id, owner: req.user._id})
 
         if (!task) {
-            res.status(404).send()
+            return res.status(404).send()
         }
 
+        updates.forEach((update) => task[update] = req.body[update])
+        await task.save()
         res.send(task)
 
     } catch (error) {
-        res.status(400).send(error)
+        res.status(500).send()
+        console.log(error)
     }
 
 })
 
 router.delete('/tasks/:id', auth, async (req, res) => {
     try {
-        const task = await Task.findByIdAndDelete(req.params.id)
+        const task = await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id })
         if (!task) {
             return res.status(404).send()
         }
