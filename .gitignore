@@ -1,4 +1,5 @@
+config/
 node_modules/
-mongodb.js
 playground/
-avatars/
+avatars/export
+sendgrid.env
