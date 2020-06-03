@@ -80,6 +80,7 @@ test('Should not get profile for unauthenticated user', async () => {
         .expect(401)
 })
 
+
 test('Should not delete account for unauthenticated user', async () => {
     await request(app)
         .delete('/users/me')
