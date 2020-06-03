@@ -25,19 +25,37 @@ afterAll(async() => {
 })
 
 test('Should sign up a new user', async() => {
-    await request(app).post('/users').send({
+    const testUser = {
         name: 'Tim',
         email: 'tim.paulaskas@gmail.com',
         age: 46,
         password: 'P@ssword!23'
-    }).expect(201)
+    }
+    const response = await request(app).post('/users').send(testUser).expect(201)
+
+    // Assert that the database was changed correctly
+    const dbUser = await User.findById(response.body.user._id)
+    expect(dbUser).not.toBeNull()
+
+    //Assertions about the response
+    expect(response.body).toMatchObject({
+        user: {
+            name: testUser.name,
+            email: testUser.email
+        },
+        token: dbUser.tokens[0].token
+    })
+    expect(dbUser.password).not.toBe(testUser.password)
 })
 
 test('Should login existing user', async () => {
-    await request(app).post('/users/login').send({
+    const response = await request(app).post('/users/login').send({
         email: userOne.email,
         password: userOne.password
     }).expect(200)
+
+    const dbUser = await User.findById(UserOneId)
+    expect(response.body.token).toBe(dbUser.tokens[1].token)
 })
 
 test('Should not allow login with bad credentials', async () => {
@@ -75,4 +93,7 @@ test('Should delete account for authenticated user', async () => {
         .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send()
         .expect(200)
+
+    const user = await User.findById(UserOneId)
+    expect(user).toBeNull()
 })
