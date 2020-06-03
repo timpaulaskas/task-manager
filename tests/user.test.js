@@ -1,28 +1,11 @@
 const request = require('supertest')
-const jwt = require('jsonwebtoken')
-const mongoose = require('mongoose')
 const app = require('../src/app')
 const User = require('../src/models/user')
+const { userOneId, userOne, setupDatabase, teardownDatabase } = require('./fixtures/db')
 
-const UserOneId = new mongoose.Types.ObjectId()
-const userOne = {
-    _id: UserOneId,
-    name: 'Mike',
-    email: 'tim.paulaskas+1@gmail.com',
-    password: 'T3st!2482',
-    tokens: [{
-        token: jwt.sign({ _id: UserOneId}, process.env.JWT_SECRET)
-    }]
-}
+beforeEach(setupDatabase)
 
-beforeAll(async() => {
-    await User.deleteMany()
-    await new User(userOne).save()
-})
-
-afterAll(async() => {
-    await User.deleteMany()
-})
+afterAll(teardownDatabase)
 
 test('Should sign up a new user', async() => {
     const testUser = {
@@ -54,7 +37,7 @@ test('Should login existing user', async () => {
         password: userOne.password
     }).expect(200)
 
-    const dbUser = await User.findById(UserOneId)
+    const dbUser = await User.findById(userOneId)
     expect(response.body.token).toBe(dbUser.tokens[1].token)
 })
 
@@ -95,6 +78,40 @@ test('Should delete account for authenticated user', async () => {
         .send()
         .expect(200)
 
-    const user = await User.findById(UserOneId)
+    const user = await User.findById(userOneId)
     expect(user).toBeNull()
+})
+
+test('Should upload avatar image', async () => {
+    await request(app)
+        .post('/users/me/avatar')
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
+        .attach('avatar', 'tests/fixtures/Tim-memoji.png')
+        .expect(200)
+
+    const dbUser = await User.findById(userOneId)
+    expect(dbUser.avatar).toEqual(expect.any(Buffer))
+})
+
+test('Should update valid fields for authenticated user', async () => {
+    await request(app)
+        .patch('/users/me')
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
+        .send({
+            name: 'Bob'
+        })
+        .expect(200)
+
+    const dbUser = await User.findById(userOneId)
+    expect(dbUser.name).toBe('Bob')
+})
+
+test('Should not update invalid fields for authenticated user', async () => {
+    await request(app)
+        .patch('/users/me')
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
+        .send({
+            location: 'California'
+        })
+        .expect(400)
 })
